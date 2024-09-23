@@ -6,9 +6,204 @@
     <title>Enhanced Meal Planner with Login</title>
 
     <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.8/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.8/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.8/firebase-firestore.js"></script>
+    <script type="module">
+        // Import Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCiE49f5ZWS0jiwmnVYJkdkTgVzAfTGNKY",
+            authDomain: "cw-test-d6fd8.firebaseapp.com",
+            projectId: "cw-test-d6fd8",
+            storageBucket: "cw-test-d6fd8.appspot.com",
+            messagingSenderId: "1015783240778",
+            appId: "1:1015783240778:web:d6da49fc9c5d7d3f1f22b3",
+            measurementId: "G-QB9MK37JGQ"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Variables to store ingredients and recipes
+        let ingredients = [];
+        let recipes = [];
+
+        // Show planner section
+        function showPlannerSection(user) {
+            document.getElementById('planner-section').style.display = 'block';
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('userEmail').textContent = user ? user.email : "Test User";
+
+            if (user) {
+                fetchUserData(user.uid);
+            }
+        }
+
+        function hidePlannerSection() {
+            document.getElementById('planner-section').style.display = 'none';
+            document.getElementById('auth-section').style.display = 'block';
+        }
+
+        // Fetch user data from Firestore
+        async function fetchUserData(userId) {
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                ingredients = data.ingredients || [];
+                recipes = data.recipes || [];
+                updateIngredientList();
+                updateRecipeList();
+            }
+        }
+
+        // Save user data to Firestore
+        async function saveUserData(userId) {
+            await setDoc(doc(db, 'users', userId), {
+                ingredients: ingredients,
+                recipes: recipes
+            });
+        }
+
+        // User registration
+        async function registerUser() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                console.log('User registered:', user);
+                showPlannerSection(user);
+            } catch (error) {
+                console.error('Registration error:', error);
+                alert('Registration failed. Please try again.');
+            }
+        }
+
+        // User login
+        async function loginUser() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                console.log('User logged in:', user);
+                showPlannerSection(user);
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login failed. Please check your credentials.');
+            }
+        }
+
+        // User logout
+        async function logoutUser() {
+            try {
+                await signOut(auth);
+                console.log('User logged out');
+                hidePlannerSection();
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Logout failed. Please try again.');
+            }
+        }
+
+        // Fetch nutritional data from Spoonacular API
+        async function fetchNutritionalData() {
+            const ingredient = document.getElementById('ingredientInput').value.trim();
+            const spoonacularApiKey = "915aec4182dd48ab996c9e041b3a8d28"; // Replace with your actual API key
+            const spoonacularApiUrl = `https://api.spoonacular.com/recipes/guessNutrition?title=${ingredient}&apiKey=${spoonacularApiKey}`;
+
+            if (ingredient) {
+                try {
+                    const response = await fetch(spoonacularApiUrl);
+                    const data = await response.json();
+                    const calories = data.calories?.value || 0;
+                    const protein = data.protein?.value || 0;
+                    const carbs = data.carbs?.value || 0;
+                    const fat = data.fat?.value || 0;
+
+                    ingredients.push({ ingredient, calories, protein, carbs, fat });
+                    updateIngredientList();
+                    if (auth.currentUser) {
+                        saveUserData(auth.currentUser.uid);
+                    }
+                    document.getElementById('ingredientInput').value = '';
+                } catch (err) {
+                    console.error('Error fetching nutrition data:', err);
+                    alert('Failed to fetch nutrition data. Please try again later.');
+                }
+            }
+        }
+
+        // Update ingredient list UI
+        function updateIngredientList() {
+            const ingredientList = document.getElementById('ingredientList');
+            ingredientList.innerHTML = '';
+            ingredients.forEach((item) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${item.ingredient} - Calories: ${item.calories}, Protein: ${item.protein}g, Carbs: ${item.carbs}g, Fat: ${item.fat}g`;
+                ingredientList.appendChild(listItem);
+            });
+        }
+
+        // Add new recipe to the list
+        function addRecipe() {
+            const name = document.getElementById('recipeNameInput').value.trim();
+            const recipeIngredients = document.getElementById('recipeIngredientsInput').value.trim().split(',');
+            const calories = parseFloat(document.getElementById('recipeCaloriesInput').value) || 0;
+            const protein = parseFloat(document.getElementById('recipeProteinInput').value) || 0;
+            const carbs = parseFloat(document.getElementById('recipeCarbsInput').value) || 0;
+            const fat = parseFloat(document.getElementById('recipeFatInput').value) || 0;
+
+            if (name && recipeIngredients.length > 0) {
+                recipes.push({ name, ingredients: recipeIngredients, calories, protein, carbs, fat });
+                updateRecipeList();
+                if (auth.currentUser) {
+                    saveUserData(auth.currentUser.uid);
+                }
+                document.getElementById('recipeNameInput').value = '';
+                document.getElementById('recipeIngredientsInput').value = '';
+                document.getElementById('recipeCaloriesInput').value = '';
+                document.getElementById('recipeProteinInput').value = '';
+                document.getElementById('recipeCarbsInput').value = '';
+                document.getElementById('recipeFatInput').value = '';
+            }
+        }
+
+        // Update recipe list UI
+        function updateRecipeList() {
+            const recipeList = document.getElementById('recipeList');
+            recipeList.innerHTML = '';
+            recipes.forEach((recipe) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${recipe.name} - Calories: ${recipe.calories}, Protein: ${recipe.protein}g, Carbs: ${recipe.carbs}g, Fat: ${recipe.fat}g`;
+                recipeList.appendChild(listItem);
+            });
+        }
+
+        // Check authentication state
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                showPlannerSection(user); // Show the planner if logged in
+            } else {
+                hidePlannerSection(); // Show the auth section if logged out
+            }
+        });
+
+        // Attach event listeners to buttons
+        window.addEventListener('load', () => {
+            document.getElementById('registerButton').addEventListener('click', registerUser);
+            document.getElementById('loginButton').addEventListener('click', loginUser);
+            document.getElementById('logoutButton').addEventListener('click', logoutUser);
+            document.getElementById('addIngredientButton').addEventListener('click', fetchNutritionalData);
+            document.getElementById('addRecipeButton').addEventListener('click', addRecipe);
+        });
+    </script>
 
     <!-- Styles -->
     <style>
@@ -82,25 +277,23 @@
         <h1>Meal Planner with User Login</h1>
 
         <!-- User Authentication Section -->
-        <!--
         <div id="auth-section">
             <h2>Login or Register</h2>
             <input type="email" id="emailInput" placeholder="Enter your email">
             <input type="password" id="passwordInput" placeholder="Enter your password">
-            <button onclick="registerUser()">Register</button>
-            <button onclick="loginUser()">Login</button>
-            <button onclick="logoutUser()">Logout</button>
+            <button id="registerButton">Register</button>
+            <button id="loginButton">Login</button>
         </div>
-        -->
 
-        <!-- Planner Section (now visible for testing) -->
-        <div id="planner-section">
-            <h2>Welcome, <span id="userEmail">Test User</span></h2>
+        <!-- Planner Section (only visible after login) -->
+        <div id="planner-section" style="display:none;">
+            <h2>Welcome, <span id="userEmail"></span></h2>
+            <button id="logoutButton">Logout</button>
             <h2>Ingredients</h2>
             <input type="text" id="ingredientInput" placeholder="Enter ingredient">
-            <button onclick="fetchNutritionalData()">Add Ingredient with Nutrition</button>
+            <button id="addIngredientButton">Add Ingredient with Nutrition</button>
             <ul id="ingredientList"></ul>
-            
+
             <h2>Recipes</h2>
             <input type="text" id="recipeNameInput" placeholder="Enter recipe name">
             <input type="text" id="recipeIngredientsInput" placeholder="Enter ingredients (comma-separated)">
@@ -108,150 +301,9 @@
             <input type="number" id="recipeProteinInput" placeholder="Protein (g)">
             <input type="number" id="recipeCarbsInput" placeholder="Carbs (g)">
             <input type="number" id="recipeFatInput" placeholder="Fat (g)">
-            <button onclick="addRecipe()">Add Recipe</button>
+            <button id="addRecipeButton">Add Recipe</button>
             <ul id="recipeList"></ul>
         </div>
     </div>
-
-    <script>
-        // Firebase configuration (Replace this with your actual Firebase config from the Firebase Console)
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-
-        // Spoonacular API configuration
-        const spoonacularApiKey = "915aec4182dd48ab996c9e041b3a8d28"; // Replace with your actual API key
-        const spoonacularApiUrl = "https://api.spoonacular.com/recipes/guessNutrition";
-
-        // Variables to store ingredients and recipes
-        let ingredients = [];
-        let recipes = [];
-
-        // Show planner section immediately for testing
-        function showPlannerSection(user) {
-            document.getElementById('planner-section').style.display = 'block';
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('userEmail').textContent = user ? user.email : "Test User";
-
-            // Fetch user's saved ingredients and recipes from Firestore
-            if (user) {
-                fetchUserData(user.uid);
-            }
-        }
-
-        function hidePlannerSection() {
-            document.getElementById('planner-section').style.display = 'none';
-            document.getElementById('auth-section').style.display = 'block';
-        }
-
-        // Show planner section by default for testing purposes
-        showPlannerSection(null);
-
-        // Fetch user data (ingredients and recipes) from Firestore
-        function fetchUserData(userId) {
-            db.collection('users').doc(userId).get().then((doc) => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    ingredients = data.ingredients || [];
-                    recipes = data.recipes || [];
-                    updateIngredientList();
-                    updateRecipeList();
-                }
-            });
-        }
-
-        // Save user's ingredients and recipes to Firestore
-        function saveUserData(userId) {
-            db.collection('users').doc(userId).set({
-                ingredients: ingredients,
-                recipes: recipes
-            });
-        }
-
-        // Fetch nutritional data from Spoonacular API
-        function fetchNutritionalData() {
-            const ingredient = document.getElementById('ingredientInput').value.trim();
-
-            if (ingredient) {
-                fetch(`${spoonacularApiUrl}?title=${ingredient}&apiKey=${spoonacularApiKey}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        const calories = data.calories.value || 0;
-                        const protein = data.protein.value || 0;
-                        const carbs = data.carbs.value || 0;
-                        const fat = data.fat.value || 0;
-
-                        // Add ingredient with nutritional data
-                        ingredients.push({ ingredient, calories, protein, carbs, fat });
-                        updateIngredientList();
-                        if (auth.currentUser) {
-                            saveUserData(auth.currentUser.uid);  // Save data to Firestore
-                        }
-                        document.getElementById('ingredientInput').value = '';
-                    })
-                    .catch(err => {
-                        console.error('Error fetching nutrition data:', err);
-                        alert('Failed to fetch nutrition data. Please try again later.');
-                    });
-            }
-        }
-
-        // Update ingredient list UI
-        function updateIngredientList() {
-            const ingredientList = document.getElementById('ingredientList');
-            ingredientList.innerHTML = '';
-            ingredients.forEach((item, index) => {
-                const listItem = document.createElement('li');
-                listItem.textContent = `${item.ingredient} - Calories: ${item.calories}, Protein: ${item.protein}g, Carbs: ${item.carbs}g, Fat: ${item.fat}g`;
-                ingredientList.appendChild(listItem);
-            });
-        }
-
-        // Update recipe list UI
-        function updateRecipeList() {
-            const recipeList = document.getElementById('recipeList');
-            recipeList.innerHTML = '';
-            recipes.forEach((recipe, index) => {
-                const listItem = document.createElement('li');
-                listItem.textContent = `${recipe.name} - Calories: ${recipe.calories}, Protein: ${recipe.protein}g, Carbs: ${recipe.carbs}g, Fat: ${recipe.fat}g`;
-                recipeList.appendChild(listItem);
-            });
-        }
-
-        // Add new recipe to the list and Firestore
-        function addRecipe() {
-            const name = document.getElementById('recipeNameInput').value.trim();
-            const ingredients = document.getElementById('recipeIngredientsInput').value.trim().split(',');
-            const calories = parseFloat(document.getElementById('recipeCaloriesInput').value) || 0;
-            const protein = parseFloat(document.getElementById('recipeProteinInput').value) || 0;
-            const carbs = parseFloat(document.getElementById('recipeCarbsInput').value) || 0;
-            const fat = parseFloat(document.getElementById('recipeFatInput').value) || 0;
-
-            if (name && ingredients.length > 0) {
-                recipes.push({ name, ingredients, calories, protein, carbs, fat });
-                updateRecipeList();
-                if (auth.currentUser) {
-                    saveUserData(auth.currentUser.uid);  // Save data to Firestore
-                }
-                document.getElementById('recipeNameInput').value = '';
-                document.getElementById('recipeIngredientsInput').value = '';
-                document.getElementById('recipeCaloriesInput').value = '';
-                document.getElementById('recipeProteinInput').value = '';
-                document.getElementById('recipeCarbsInput').value = '';
-                document.getElementById('recipeFatInput').value = '';
-            }
-        }
-
-    </script>
 </body>
 </html>
