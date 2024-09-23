@@ -89,6 +89,8 @@
             <button onclick="registerUser()">Register</button>
             <button onclick="loginUser()">Login</button>
             <button onclick="logoutUser()">Logout</button>
+            <!-- Bypass Login Button -->
+            <button onclick="bypassLogin()">Skip Login (Testing)</button>
         </div>
 
         <!-- Planner Section (only visible after login) -->
@@ -171,6 +173,17 @@
             });
         }
 
+        // Bypass login for testing
+        function bypassLogin() {
+            // Create a dummy user object for testing
+            const testUser = {
+                email: "test@example.com",
+                uid: "test-user-id"
+            };
+            alert("Bypassing login. Welcome, " + testUser.email);
+            showPlannerSection(testUser);
+        }
+
         // Show planner section after login
         function showPlannerSection(user) {
             document.getElementById('planner-section').style.display = 'block';
@@ -232,5 +245,8 @@
                     });
             }
         }
-
-        // Example functions for adding ingredients, recipes
+        
+        // Example functions for adding ingredients, recipes
+    </script>
+</body>
+</html>
