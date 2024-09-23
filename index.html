@@ -28,13 +28,10 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Variables to store ingredients and recipes
-        let ingredients = [];
-        let recipes = [];
-
         // Show planner section
         function showPlannerSection(user) {
             document.getElementById('planner-section').style.display = 'block';
+            document.getElementById('quiz-section').style.display = 'none';
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('userEmail').textContent = user ? user.email : "Test User";
 
@@ -45,6 +42,7 @@
 
         function hidePlannerSection() {
             document.getElementById('planner-section').style.display = 'none';
+            document.getElementById('quiz-section').style.display = 'none';
             document.getElementById('auth-section').style.display = 'block';
         }
 
@@ -53,19 +51,13 @@
             const userDoc = await getDoc(doc(db, 'users', userId));
             if (userDoc.exists()) {
                 const data = userDoc.data();
-                ingredients = data.ingredients || [];
-                recipes = data.recipes || [];
-                updateIngredientList();
-                updateRecipeList();
+                // Handle user data
             }
         }
 
         // Save user data to Firestore
-        async function saveUserData(userId) {
-            await setDoc(doc(db, 'users', userId), {
-                ingredients: ingredients,
-                recipes: recipes
-            });
+        async function saveUserData(userId, quizData) {
+            await setDoc(doc(db, 'users', userId), { ...quizData, quizCompleted: true });
         }
 
         // User registration
@@ -77,7 +69,7 @@
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
                 console.log('User registered:', user);
-                showPlannerSection(user);
+                showQuizSection(user);
             } catch (error) {
                 console.error('Registration error:', error);
                 alert('Registration failed. Please try again.');
@@ -93,7 +85,7 @@
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
                 console.log('User logged in:', user);
-                showPlannerSection(user);
+                showQuizSection(user);
             } catch (error) {
                 console.error('Login error:', error);
                 alert('Login failed. Please check your credentials.');
@@ -112,86 +104,60 @@
             }
         }
 
-        // Fetch nutritional data from Spoonacular API
-        async function fetchNutritionalData() {
-            const ingredient = document.getElementById('ingredientInput').value.trim();
-            const spoonacularApiKey = "915aec4182dd48ab996c9e041b3a8d28"; // Replace with your actual API key
-            const spoonacularApiUrl = `https://api.spoonacular.com/recipes/guessNutrition?title=${ingredient}&apiKey=${spoonacularApiKey}`;
-
-            if (ingredient) {
-                try {
-                    const response = await fetch(spoonacularApiUrl);
-                    const data = await response.json();
-                    const calories = data.calories?.value || 0;
-                    const protein = data.protein?.value || 0;
-                    const carbs = data.carbs?.value || 0;
-                    const fat = data.fat?.value || 0;
-
-                    ingredients.push({ ingredient, calories, protein, carbs, fat });
-                    updateIngredientList();
-                    if (auth.currentUser) {
-                        saveUserData(auth.currentUser.uid);
-                    }
-                    document.getElementById('ingredientInput').value = '';
-                } catch (err) {
-                    console.error('Error fetching nutrition data:', err);
-                    alert('Failed to fetch nutrition data. Please try again later.');
-                }
-            }
+        // Show quiz section
+        function showQuizSection(user) {
+            document.getElementById('quiz-section').style.display = 'block';
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('planner-section').style.display = 'none';
+            document.getElementById('userEmail').textContent = user.email;
         }
 
-        // Update ingredient list UI
-        function updateIngredientList() {
-            const ingredientList = document.getElementById('ingredientList');
-            ingredientList.innerHTML = '';
-            ingredients.forEach((item) => {
-                const listItem = document.createElement('li');
-                listItem.textContent = `${item.ingredient} - Calories: ${item.calories}, Protein: ${item.protein}g, Carbs: ${item.carbs}g, Fat: ${item.fat}g`;
-                ingredientList.appendChild(listItem);
-            });
-        }
+        // Submit quiz and save preferences
+        async function submitQuiz() {
+            const goal = document.querySelector('input[name="goal"]:checked')?.value;
+            const allergies = document.querySelector('input[name="allergies"]:checked')?.value;
+            const allergyDetails = allergies === 'yes' ? document.getElementById('allergyDetails').value : '';
+            const budget = document.querySelector('input[name="budget"]:checked')?.value;
+            const cookingTime = document.querySelector('input[name="cookingTime"]:checked')?.value;
 
-        // Add new recipe to the list
-        function addRecipe() {
-            const name = document.getElementById('recipeNameInput').value.trim();
-            const recipeIngredients = document.getElementById('recipeIngredientsInput').value.trim().split(',');
-            const calories = parseFloat(document.getElementById('recipeCaloriesInput').value) || 0;
-            const protein = parseFloat(document.getElementById('recipeProteinInput').value) || 0;
-            const carbs = parseFloat(document.getElementById('recipeCarbsInput').value) || 0;
-            const fat = parseFloat(document.getElementById('recipeFatInput').value) || 0;
+            const quizData = {
+                goal,
+                allergies: {
+                    hasAllergies: allergies,
+                    details: allergyDetails
+                },
+                budget,
+                cookingTime
+            };
 
-            if (name && recipeIngredients.length > 0) {
-                recipes.push({ name, ingredients: recipeIngredients, calories, protein, carbs, fat });
-                updateRecipeList();
+            if (goal && budget && cookingTime) {
                 if (auth.currentUser) {
-                    saveUserData(auth.currentUser.uid);
+                    await saveUserData(auth.currentUser.uid, quizData);
+                    showPlannerSection(auth.currentUser);
                 }
-                document.getElementById('recipeNameInput').value = '';
-                document.getElementById('recipeIngredientsInput').value = '';
-                document.getElementById('recipeCaloriesInput').value = '';
-                document.getElementById('recipeProteinInput').value = '';
-                document.getElementById('recipeCarbsInput').value = '';
-                document.getElementById('recipeFatInput').value = '';
+            } else {
+                alert('Please answer all questions before submitting.');
             }
         }
 
-        // Update recipe list UI
-        function updateRecipeList() {
-            const recipeList = document.getElementById('recipeList');
-            recipeList.innerHTML = '';
-            recipes.forEach((recipe) => {
-                const listItem = document.createElement('li');
-                listItem.textContent = `${recipe.name} - Calories: ${recipe.calories}, Protein: ${recipe.protein}g, Carbs: ${recipe.carbs}g, Fat: ${recipe.fat}g`;
-                recipeList.appendChild(listItem);
-            });
+        // Toggle allergy details visibility
+        function toggleAllergyDetails(show) {
+            document.getElementById('allergyDetailsContainer').style.display = show ? 'block' : 'none';
         }
 
         // Check authentication state
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                showPlannerSection(user); // Show the planner if logged in
+                // Check if the user has completed the quiz
+                fetchUserData(user.uid).then((data) => {
+                    if (data && data.quizCompleted) {
+                        showPlannerSection(user);
+                    } else {
+                        showQuizSection(user);
+                    }
+                });
             } else {
-                hidePlannerSection(); // Show the auth section if logged out
+                hidePlannerSection();
             }
         });
 
@@ -200,8 +166,7 @@
             document.getElementById('registerButton').addEventListener('click', registerUser);
             document.getElementById('loginButton').addEventListener('click', loginUser);
             document.getElementById('logoutButton').addEventListener('click', logoutUser);
-            document.getElementById('addIngredientButton').addEventListener('click', fetchNutritionalData);
-            document.getElementById('addRecipeButton').addEventListener('click', addRecipe);
+            document.getElementById('submitQuizButton').addEventListener('click', submitQuiz);
         });
     </script>
 
@@ -253,17 +218,6 @@
             justify-content: space-between;
             align-items: center;
         }
-        .delete-btn, .edit-btn {
-            background-color: #f44336;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            margin-left: 5px;
-            cursor: pointer;
-        }
-        .edit-btn {
-            background-color: #008CBA;
-        }
         .meal-plan {
             background-color: #e7f3ff;
             padding: 10px;
@@ -285,24 +239,48 @@
             <button id="loginButton">Login</button>
         </div>
 
-        <!-- Planner Section (only visible after login) -->
-        <div id="planner-section" style="display:none;">
-            <h2>Welcome, <span id="userEmail"></span></h2>
-            <button id="logoutButton">Logout</button>
-            <h2>Ingredients</h2>
-            <input type="text" id="ingredientInput" placeholder="Enter ingredient">
-            <button id="addIngredientButton">Add Ingredient with Nutrition</button>
-            <ul id="ingredientList"></ul>
+        <!-- Quiz Section -->
+        <div id="quiz-section" style="display:none;">
+            <h2>Introductory Quiz</h2>
+            <form id="quizForm">
+                <h3>Question 1: What is your goal?</h3>
+                <input type="radio" name="goal" value="weight_loss"> Weight Loss<br>
+                <input type="radio" name="goal" value="bulk"> Bulk<br>
 
-            <h2>Recipes</h2>
-            <input type="text" id="recipeNameInput" placeholder="Enter recipe name">
-            <input type="text" id="recipeIngredientsInput" placeholder="Enter ingredients (comma-separated)">
-            <input type="number" id="recipeCaloriesInput" placeholder="Calories">
-            <input type="number" id="recipeProteinInput" placeholder="Protein (g)">
-            <input type="number" id="recipeCarbsInput" placeholder="Carbs (g)">
-            <input type="number" id="recipeFatInput" placeholder="Fat (g)">
-            <button id="addRecipeButton">Add Recipe</button>
-            <ul id="recipeList"></ul>
+                <h3>Question 2: Any allergies?</h3>
+                <input type="radio" name="allergies" value="yes" onclick="toggleAllergyDetails(true)"> Yes<br>
+                <input type="radio" name="allergies" value="no" onclick="toggleAllergyDetails(false)"> No<br>
+                <div id="allergyDetailsContainer" style="display:none;">
+                    <input type="text" id="allergyDetails" placeholder="Please specify your allergies">
+                </div>
+
+                <h3>Question 3: What is your budget?</h3>
+                <input type="radio" name="budget" value="low"> Low<br>
+                <input type="radio" name="budget" value="medium"> Medium<br>
+                <input type="radio" name="budget" value="high"> High<br>
+
+                <h3>Question 4: What is your preferred cooking time?</h3>
+                <input type="radio" name="cookingTime" value="quick"> Quick (under 30 minutes)<br>
+                <input type="radio" name="cookingTime" value="medium"> Medium (30-60 minutes)<br>
+                <input type="radio" name="cookingTime" value="slow"> Slow (over 60 minutes)<br>
+
+                <button type="button" id="submitQuizButton">Submit Quiz</button>
+                <button type="button" id="logoutButton" style="background-color: #f44336;">Logout</button>
+            </form>
+        </div>
+
+        <!-- Planner Section -->
+        <div id="planner-section" style="display:none;">
+            <h2>Your Meal Planner</h2>
+            <p>Welcome, <span id="userEmail"></span>!</p>
+            <div class="meal-plan">
+                <!-- Meal plan will be displayed here -->
+                <ul>
+                    <li>Meal 1: Breakfast</li>
+                    <li>Meal 2: Lunch</li>
+                    <li>Meal 3: Dinner</li>
+                </ul>
+            </div>
         </div>
     </div>
 </body>
