@@ -82,6 +82,7 @@
         <h1>Meal Planner with User Login</h1>
 
         <!-- User Authentication Section -->
+        <!--
         <div id="auth-section">
             <h2>Login or Register</h2>
             <input type="email" id="emailInput" placeholder="Enter your email">
@@ -89,13 +90,12 @@
             <button onclick="registerUser()">Register</button>
             <button onclick="loginUser()">Login</button>
             <button onclick="logoutUser()">Logout</button>
-            <!-- Bypass Login Button -->
-            <button onclick="bypassLogin()">Skip Login (Testing)</button>
         </div>
+        -->
 
-        <!-- Planner Section (only visible after login) -->
-        <div id="planner-section" style="display:none;">
-            <h2>Welcome, <span id="userEmail"></span></h2>
+        <!-- Planner Section (now visible for testing) -->
+        <div id="planner-section">
+            <h2>Welcome, <span id="userEmail">Test User</span></h2>
             <h2>Ingredients</h2>
             <input type="text" id="ingredientInput" placeholder="Enter ingredient">
             <button onclick="fetchNutritionalData()">Add Ingredient with Nutrition</button>
@@ -133,6 +133,7 @@
         const spoonacularApiKey = "YOUR_SPOONACULAR_API_KEY"; // Replace with your actual API key
         const spoonacularApiUrl = "https://api.spoonacular.com/recipes/guessNutrition";
 
+        /* 
         // Register new users
         function registerUser() {
             const email = document.getElementById('emailInput').value;
@@ -172,32 +173,27 @@
                 alert(error.message);
             });
         }
+        */
 
-        // Bypass login for testing
-        function bypassLogin() {
-            // Create a dummy user object for testing
-            const testUser = {
-                email: "test@example.com",
-                uid: "test-user-id"
-            };
-            alert("Bypassing login. Welcome, " + testUser.email);
-            showPlannerSection(testUser);
-        }
-
-        // Show planner section after login
+        // Show planner section immediately for testing
         function showPlannerSection(user) {
             document.getElementById('planner-section').style.display = 'block';
             document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userEmail').textContent = user ? user.email : "Test User";
 
             // Fetch user's saved ingredients and recipes from Firestore
-            fetchUserData(user.uid);
+            if (user) {
+                fetchUserData(user.uid);
+            }
         }
 
         function hidePlannerSection() {
             document.getElementById('planner-section').style.display = 'none';
             document.getElementById('auth-section').style.display = 'block';
         }
+
+        // Show planner section by default for testing purposes
+        showPlannerSection(null);
 
         // Fetch user data (ingredients and recipes) from Firestore
         function fetchUserData(userId) {
@@ -225,7 +221,7 @@
             const ingredient = document.getElementById('ingredientInput').value.trim();
 
             if (ingredient) {
-                fetch(${spoonacularApiUrl}?title=${ingredient}&apiKey=${spoonacularApiKey})
+                fetch(`${spoonacularApiUrl}?title=${ingredient}&apiKey=${spoonacularApiKey}`)
                     .then(response => response.json())
                     .then(data => {
                         const calories = data.calories.value || 0;
@@ -236,7 +232,9 @@
                         // Add ingredient with nutritional data
                         ingredients.push({ ingredient, calories, protein, carbs, fat });
                         updateIngredientList();
-                        saveUserData(auth.currentUser.uid);  // Save data to Firestore
+                        if (auth.currentUser) {
+                            saveUserData(auth.currentUser.uid);  // Save data to Firestore
+                        }
                         document.getElementById('ingredientInput').value = '';
                     })
                     .catch(err => {
@@ -245,6 +243,8 @@
                     });
             }
         }
-        
+
         // Example functions for adding ingredients, recipes
     </script>
+</body>
+</html>
