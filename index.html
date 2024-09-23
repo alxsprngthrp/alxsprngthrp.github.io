@@ -1,0 +1,237 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Meal Planner with Login</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.8/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.8/firebase-firestore.js"></script>
+
+    <!-- Styles -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        input, button, select {
+            margin: 5px 0;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background-color: #f9f9f9;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .delete-btn, .edit-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            margin-left: 5px;
+            cursor: pointer;
+        }
+        .edit-btn {
+            background-color: #008CBA;
+        }
+        .meal-plan {
+            background-color: #e7f3ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Meal Planner with User Login</h1>
+
+        <!-- User Authentication Section -->
+        <div id="auth-section">
+            <h2>Login or Register</h2>
+            <input type="email" id="emailInput" placeholder="Enter your email">
+            <input type="password" id="passwordInput" placeholder="Enter your password">
+            <button onclick="registerUser()">Register</button>
+            <button onclick="loginUser()">Login</button>
+            <button onclick="logoutUser()">Logout</button>
+        </div>
+
+        <!-- Planner Section (only visible after login) -->
+        <div id="planner-section" style="display:none;">
+            <h2>Welcome, <span id="userEmail"></span></h2>
+            <h2>Ingredients</h2>
+            <input type="text" id="ingredientInput" placeholder="Enter ingredient">
+            <button onclick="fetchNutritionalData()">Add Ingredient with Nutrition</button>
+            <ul id="ingredientList"></ul>
+            
+            <h2>Recipes</h2>
+            <input type="text" id="recipeNameInput" placeholder="Enter recipe name">
+            <input type="text" id="recipeIngredientsInput" placeholder="Enter ingredients (comma-separated)">
+            <input type="number" id="recipeCaloriesInput" placeholder="Calories">
+            <input type="number" id="recipeProteinInput" placeholder="Protein (g)">
+            <input type="number" id="recipeCarbsInput" placeholder="Carbs (g)">
+            <input type="number" id="recipeFatInput" placeholder="Fat (g)">
+            <button onclick="addRecipe()">Add Recipe</button>
+            <ul id="recipeList"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration (Replace this with your actual Firebase config from the Firebase Console)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Spoonacular API configuration
+        const spoonacularApiKey = "YOUR_SPOONACULAR_API_KEY"; // Replace with your actual API key
+        const spoonacularApiUrl = "https://api.spoonacular.com/recipes/guessNutrition";
+
+        // Register new users
+        function registerUser() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    alert("Registration Successful! Welcome, " + user.email);
+                    showPlannerSection(user);
+                })
+                .catch((error) => {
+                    alert(error.message);
+                });
+        }
+
+        // User login
+        function loginUser() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    alert("Login Successful! Welcome, " + user.email);
+                    showPlannerSection(user);
+                })
+                .catch((error) => {
+                    alert(error.message);
+                });
+        }
+
+        // User logout
+        function logoutUser() {
+            auth.signOut().then(() => {
+                alert("Logged out successfully.");
+                hidePlannerSection();
+            }).catch((error) => {
+                alert(error.message);
+            });
+        }
+
+        // Show planner section after login
+        function showPlannerSection(user) {
+            document.getElementById('planner-section').style.display = 'block';
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('userEmail').textContent = user.email;
+
+            // Fetch user's saved ingredients and recipes from Firestore
+            fetchUserData(user.uid);
+        }
+
+        function hidePlannerSection() {
+            document.getElementById('planner-section').style.display = 'none';
+            document.getElementById('auth-section').style.display = 'block';
+        }
+
+        // Fetch user data (ingredients and recipes) from Firestore
+        function fetchUserData(userId) {
+            db.collection('users').doc(userId).get().then((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    ingredients = data.ingredients || [];
+                    recipes = data.recipes || [];
+                    updateIngredientList();
+                    updateRecipeList();
+                }
+            });
+        }
+
+        // Save user's ingredients and recipes to Firestore
+        function saveUserData(userId) {
+            db.collection('users').doc(userId).set({
+                ingredients: ingredients,
+                recipes: recipes
+            });
+        }
+
+        // Fetch nutritional data from Spoonacular API
+        function fetchNutritionalData() {
+            const ingredient = document.getElementById('ingredientInput').value.trim();
+
+            if (ingredient) {
+                fetch(${spoonacularApiUrl}?title=${ingredient}&apiKey=${spoonacularApiKey})
+                    .then(response => response.json())
+                    .then(data => {
+                        const calories = data.calories.value || 0;
+                        const protein = data.protein.value || 0;
+                        const carbs = data.carbs.value || 0;
+                        const fat = data.fat.value || 0;
+
+                        // Add ingredient with nutritional data
+                        ingredients.push({ ingredient, calories, protein, carbs, fat });
+                        updateIngredientList();
+                        saveUserData(auth.currentUser.uid);  // Save data to Firestore
+                        document.getElementById('ingredientInput').value = '';
+                    })
+                    .catch(err => {
+                        console.error('Error fetching nutrition data:', err);
+                        alert('Failed to fetch nutrition data. Please try again later.');
+                    });
+            }
+        }
+
+        // Example functions for adding ingredients, recipes
