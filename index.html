@@ -3,285 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Meal Planner with Login</title>
-
-    <!-- Firebase SDKs -->
-    <script type="module">
-        // Import Firebase SDKs
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
-
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCiE49f5ZWS0jiwmnVYJkdkTgVzAfTGNKY",
-            authDomain: "cw-test-d6fd8.firebaseapp.com",
-            projectId: "cw-test-d6fd8",
-            storageBucket: "cw-test-d6fd8.appspot.com",
-            messagingSenderId: "1015783240778",
-            appId: "1:1015783240778:web:d6da49fc9c5d7d3f1f22b3",
-            measurementId: "G-QB9MK37JGQ"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // Show planner section
-        function showPlannerSection(user) {
-            document.getElementById('planner-section').style.display = 'block';
-            document.getElementById('quiz-section').style.display = 'none';
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('userEmail').textContent = user ? user.email : "Test User";
-
-            if (user) {
-                fetchUserData(user.uid);
-            }
-        }
-
-        function hidePlannerSection() {
-            document.getElementById('planner-section').style.display = 'none';
-            document.getElementById('quiz-section').style.display = 'none';
-            document.getElementById('auth-section').style.display = 'block';
-        }
-
-        // Fetch user data from Firestore
-        async function fetchUserData(userId) {
-            const userDoc = await getDoc(doc(db, 'users', userId));
-            if (userDoc.exists()) {
-                const data = userDoc.data();
-                // Handle user data
-            }
-        }
-
-        // Save user data to Firestore
-        async function saveUserData(userId, quizData) {
-            await setDoc(doc(db, 'users', userId), { ...quizData, quizCompleted: true });
-        }
-
-        // User registration
-        async function registerUser() {
-            const email = document.getElementById('emailInput').value;
-            const password = document.getElementById('passwordInput').value;
-
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                console.log('User registered:', user);
-                showQuizSection(user);
-            } catch (error) {
-                console.error('Registration error:', error);
-                alert('Registration failed. Please try again.');
-            }
-        }
-
-        // User login
-        async function loginUser() {
-            const email = document.getElementById('emailInput').value;
-            const password = document.getElementById('passwordInput').value;
-
-            try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                console.log('User logged in:', user);
-                showQuizSection(user);
-            } catch (error) {
-                console.error('Login error:', error);
-                alert('Login failed. Please check your credentials.');
-            }
-        }
-
-        // User logout
-        async function logoutUser() {
-            try {
-                await signOut(auth);
-                console.log('User logged out');
-                hidePlannerSection();
-            } catch (error) {
-                console.error('Logout error:', error);
-                alert('Logout failed. Please try again.');
-            }
-        }
-
-        // Show quiz section
-        function showQuizSection(user) {
-            document.getElementById('quiz-section').style.display = 'block';
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('planner-section').style.display = 'none';
-            document.getElementById('userEmail').textContent = user.email;
-        }
-
-        // Submit quiz and save preferences
-        async function submitQuiz() {
-            const goal = document.querySelector('input[name="goal"]:checked')?.value;
-            const allergies = document.querySelector('input[name="allergies"]:checked')?.value;
-            const allergyDetails = allergies === 'yes' ? document.getElementById('allergyDetails').value : '';
-            const budget = document.querySelector('input[name="budget"]:checked')?.value;
-            const cookingTime = document.querySelector('input[name="cookingTime"]:checked')?.value;
-
-            const quizData = {
-                goal,
-                allergies: {
-                    hasAllergies: allergies,
-                    details: allergyDetails
-                },
-                budget,
-                cookingTime
-            };
-
-            if (goal && budget && cookingTime) {
-                if (auth.currentUser) {
-                    await saveUserData(auth.currentUser.uid, quizData);
-                    showPlannerSection(auth.currentUser);
-                }
-            } else {
-                alert('Please answer all questions before submitting.');
-            }
-        }
-
-        // Toggle allergy details visibility
-        function toggleAllergyDetails(show) {
-            document.getElementById('allergyDetailsContainer').style.display = show ? 'block' : 'none';
-        }
-
-        // Check authentication state
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // Check if the user has completed the quiz
-                fetchUserData(user.uid).then((data) => {
-                    if (data && data.quizCompleted) {
-                        showPlannerSection(user);
-                    } else {
-                        showQuizSection(user);
-                    }
-                });
-            } else {
-                hidePlannerSection();
-            }
-        });
-
-        // Attach event listeners to buttons
-        window.addEventListener('load', () => {
-            document.getElementById('registerButton').addEventListener('click', registerUser);
-            document.getElementById('loginButton').addEventListener('click', loginUser);
-            document.getElementById('logoutButton').addEventListener('click', logoutUser);
-            document.getElementById('submitQuizButton').addEventListener('click', submitQuiz);
-        });
-    </script>
-
-    <!-- Styles -->
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f4;
-        }
-        .container {
-            max-width: 800px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        h1, h2 {
-            color: #333;
-        }
-        input, button, select {
-            margin: 5px 0;
-            padding: 10px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        button {
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        li {
-            background-color: #f9f9f9;
-            margin: 5px 0;
-            padding: 10px;
-            border-radius: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .meal-plan {
-            background-color: #e7f3ff;
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Michroma&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <title>Motorbike Training - Job Acceptance Form</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Meal Planner with User Login</h1>
 
-        <!-- User Authentication Section -->
-        <div id="auth-section">
-            <h2>Login or Register</h2>
-            <input type="email" id="emailInput" placeholder="Enter your email">
-            <input type="password" id="passwordInput" placeholder="Enter your password">
-            <button id="registerButton">Register</button>
-            <button id="loginButton">Login</button>
-        </div>
+    <h1>Job Acceptance Form</h1>
+    <form id="jobAcceptanceForm">
+        <img id="logo" src="logo.jpg" alt="Logo" style="display: block; margin: 0 auto; max-width: 100%; height: auto;">
 
-        <!-- Quiz Section -->
-        <div id="quiz-section" style="display:none;">
-            <h2>Introductory Quiz</h2>
-            <form id="quizForm">
-                <h3>Question 1: What is your goal?</h3>
-                <input type="radio" name="goal" value="weight_loss"> Weight Loss<br>
-                <input type="radio" name="goal" value="bulk"> Bulk<br>
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" value="2024-10-08" />
 
-                <h3>Question 2: Any allergies?</h3>
-                <input type="radio" name="allergies" value="yes" onclick="toggleAllergyDetails(true)"> Yes<br>
-                <input type="radio" name="allergies" value="no" onclick="toggleAllergyDetails(false)"> No<br>
-                <div id="allergyDetailsContainer" style="display:none;">
-                    <input type="text" id="allergyDetails" placeholder="Please specify your allergies">
-                </div>
+        <label for="senderName">Sender's Details</label>
+        <input type="text" id="senderName" name="senderName" required placeholder="Name" value="John Doe" />
+        
+        <label for="senderAddress">Sender's Address</label>
+        <input type="text" id="senderAddress" name="senderAddress" required placeholder="Address" autocomplete="off" value="123 Main Street, Nottingham" />
+        
+        <input type="text" id="senderContact" name="senderContact" required placeholder="Contact Number" value="07123456789" />
 
-                <h3>Question 3: What is your budget?</h3>
-                <input type="radio" name="budget" value="low"> Low<br>
-                <input type="radio" name="budget" value="medium"> Medium<br>
-                <input type="radio" name="budget" value="high"> High<br>
+        <label>Receiver's Details</label>
+        <input type="text" id="receiverName" name="receiverName" value="Long Eaton Motorcycles" readonly />
+        <input type="text" id="receiverAddress" name="receiverAddress" value="77-79 Wilsthorpe Road, NG10 3JX" readonly />
+        <input type="text" id="receiverContact" name="receiverContact" value="0115 9728293" readonly />
 
-                <h3>Question 4: What is your preferred cooking time?</h3>
-                <input type="radio" name="cookingTime" value="quick"> Quick (under 30 minutes)<br>
-                <input type="radio" name="cookingTime" value="medium"> Medium (30-60 minutes)<br>
-                <input type="radio" name="cookingTime" value="slow"> Slow (over 60 minutes)<br>
+        <label for="description">Description of Item(s)</label>
+        <input type="text" id="itemMake" name="itemMake" placeholder="Make" required value="Yamaha" />
+        <input type="text" id="itemModel" name="itemModel" placeholder="Model" required value="YZF-R1" />
+        <input type="text" id="itemYear" name="itemYear" placeholder="Year" required value="2020" />
 
-                <button type="button" id="submitQuizButton">Submit Quiz</button>
-                <button type="button" id="logoutButton" style="background-color: #f44336;">Logout</button>
-            </form>
-        </div>
+        <label for="specialInstructions">Special Instructions (if any):</label>
+        <textarea id="specialInstructions" name="specialInstructions">Handle with care.</textarea>
 
-        <!-- Planner Section -->
-        <div id="planner-section" style="display:none;">
-            <h2>Your Meal Planner</h2>
-            <p>Welcome, <span id="userEmail"></span>!</p>
-            <div class="meal-plan">
-                <!-- Meal plan will be displayed here -->
-                <ul>
-                    <li>Meal 1: Breakfast</li>
-                    <li>Meal 2: Lunch</li>
-                    <li>Meal 3: Dinner</li>
-                </ul>
-            </div>
-        </div>
-    </div>
+        <label>Terms and Conditions</label>
+        <p>I, the sender, hereby confirm that I have read and understood the terms and conditions provided by Long Eaton Motorcycles. I understand that the business is insured up to £10,000 for vehicles in transit at any one time. I agree that Long Eaton Motorcycles shall not be liable for any loss or damage beyond this amount.</p>
+        
+        <label for="preExistingDamage">Pre-Existing Damage (if any):</label>
+        <textarea id="preExistingDamage" name="preExistingDamage">None</textarea>
+
+        <label>Photographs:</label>
+        <input type="file" id="photoUpload" name="photoUpload" multiple accept="image/*" />
+
+        <label>Sender's Signature:</label>
+        <canvas id="signature" width="300" height="100" style="border: 1px solid #ccc;"></canvas>
+
+        <button type="button" id="clearSignature">Clear Signature</button>
+        <button type="button" onclick="generatePDF()">Agree & Sign</button>
+    </form>
+
+    <script>
+        // Signature functionality
+        const canvas = document.getElementById('signature');
+        const context = canvas.getContext('2d');
+        let drawing = false;
+
+        canvas.addEventListener('mousedown', (event) => {
+            drawing = true;
+            context.beginPath();
+            context.moveTo(event.offsetX, event.offsetY);
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            if (drawing) {
+                context.lineTo(event.offsetX, event.offsetY);
+                context.stroke();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            drawing = false;
+            context.closePath();
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            drawing = false;
+            context.closePath();
+        });
+
+        // Generate PDF with jsPDF and include signature and uploaded images
+        async function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Add logo to the PDF
+            const logo = document.getElementById('logo');
+            const logoDataUrl = logo.src;
+            doc.addImage(logoDataUrl, 'JPEG', 10, 10, 40, 40);
+
+            // Set font for the PDF
+            doc.setFont("Helvetica", "normal");
+            doc.setTextColor(255, 255, 255);
+
+            // Background color
+            doc.setFillColor(43, 44, 47);
+            doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
+
+            // Title
+            doc.setFontSize(24);
+            doc.setTextColor(252, 176, 39);
+            doc.text(`Job Acceptance Form - Long Eaton Motorcycles`, 10, 60);
+
+            // Date
+            doc.setFontSize(12);
+            doc.setTextColor(255, 255, 255);
+            const jobDate = document.getElementById('date').value;
+            const formattedDate = jobDate.split('-').reverse().join('/'); 
+            doc.text(`Date: ${formattedDate}`, 10, 80);
+
+            // Sender's Details
+            doc.setFontSize(14);
+            doc.text(`Sender's Details`, 10, 100);
+            doc.setFontSize(12);
+            doc.text(`Name: ${document.getElementById('senderName').value}`, 10, 110);
+            doc.text(`Address: ${document.getElementById('senderAddress').value}`, 10, 130);
+            doc.text(`Contact Number: ${document.getElementById('senderContact').value}`, 10, 150);
+
+            // Item Details
+            doc.setFontSize(14);
+            doc.text(`Item Details`, 10, 170);
+            doc.setFontSize(12);
+            doc.text(`Make: ${document.getElementById('itemMake').value}`, 10, 180);
+            doc.text(`Model: ${document.getElementById('itemModel').value}`, 10, 190);
+            doc.text(`Year: ${document.getElementById('itemYear').value}`, 10, 200);
+
+            // Pre-Existing Damage
+            doc.setFontSize(14);
+            doc.text(`Pre-Existing Damage (if any):`, 10, 220);
+            doc.setFontSize(12);
+            doc.text(`${document.getElementById('preExistingDamage').value}`, 10, 230);
+
+            // Add signature to PDF
+            const signatureDataUrl = canvas.toDataURL('image/png');
+            doc.text(`Sender's Signature:`, 10, 250);
+            doc.addImage(signatureDataUrl, 'PNG', 10, 260, 100, 50);
+
+            // Read and add uploaded images to the PDF
+            const photoUpload = document.getElementById('photoUpload');
+            const files = photoUpload.files;
+            let yOffset = 320; // Start below the signature
+
+            // Create an array of promises for each image
+            const imagePromises = Array.from(files).map((file) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const imgData = event.target.result;
+
+                        // Log image data for debugging
+                        console.log("Image data:", imgData);
+
+                        doc.addImage(imgData, 'JPEG', 10, yOffset, 180, 100); // Add image to PDF
+                        yOffset += 110; // Increment yOffset for the next image
+                        resolve();
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            // Wait for all images to be processed before saving
+            Promise.all(imagePromises).then(() => {
+                doc.save(`Job_Acceptance_Form_${document.getElementById('senderName').value}.pdf`);
+            }).catch((error) => {
+                console.error("Error adding images:", error);
+            });
+
+            // If no files were uploaded, save the PDF immediately
+            if (files.length === 0) {
+                doc.save(`Job_Acceptance_Form_${document.getElementById('senderName').value}.pdf`);
+            }
+        }
+
+        // Clear signature functionality
+        document.getElementById('clearSignature').addEventListener('click', function() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+        });
+    </script>
 </body>
 </html>
